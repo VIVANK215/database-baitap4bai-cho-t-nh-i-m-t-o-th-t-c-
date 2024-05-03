@@ -1,0 +1,198 @@
+create database SINH_VIEN -- tạo csld SINH VIEN
+
+
+USE SINH_VIEN -- đây là add các bảng vào trong csdl  
+
+create table sinh_vien ( --tạo bảng tên là sinhvien 
+		maSV nvarchar (15) primary key , -- tạo cột tên maSV có kiểu dữ liệu nvarchar là khóa chính
+		Hoten nvarchar (20) not null ,
+		gioi_tinh bit ,
+		loveSV varchar (10) not null ,
+    ) 
+create table monhoc (
+				 IDmon nvarchar (50) primary key ,
+				 Tenmon nvarchar (30) not null ,
+				 Stc int not null ,
+				 )
+
+create table HP( 
+					ID_HP char (10) primary key ,
+					TenHP nvarchar (20) not null ,
+					Hocky int not null ,
+					IDmon nvarchar (50) foreign key references monhoc (IDmon),-- này là ràng buộc khóa phụ cho các bảng và các thành phần , tham chiếu cho IDmon vào bảng HP
+				)
+create table DKMH (
+						IDDKMH char (5) primary key ,
+						diemthi float not null ,
+						diemkt float not null, 
+						maSV nvarchar (15) foreign key references sinh_vien (maSV),
+						ID_HP char (10) foreign key references HP ( ID_HP),
+						) 
+
+create table Giao_vien (
+						id_giao_vien char (5) primary key ,
+						hoten nvarchar  ( 50) not null,
+						bo_mon nvarchar (50) not null,
+						)
+
+insert into sinh_vien (maSV, Hoten,gioi_tinh,loveSV ) -- thêm dữ liệu cho bảng sinhvien
+values 
+('k215', 'Nguyễn Văn vu',1,'Ac12'),
+('k216', 'Trần Thị ji',0,'Bc13'),
+('k217', 'Lê Hoàng bao',1,'Cc14');
+
+insert into monhoc (IDmon, tenmon,Stc ) 
+values 
+('p01', 'Toán cao cấp', 2),
+('p02', 'Lập trình C++', 3),
+('p03', 'Cơ sở dữ liệu', 4);
+
+insert into Giao_vien (id_giao_vien, hoten, bo_mon )
+values 
+('GV1', N' Đỗ thu Hiền' , 'CNTT '),
+('GV2' , N'Đặng thị Hiên', 'CNTT'),
+('GV3' , N'ĐỖ duy cốp ' , ' CNTT');
+
+insert into HP (ID_HP,IDmon, TenHP, Hocky) 
+values 
+('hp201', 'p01', 'Toán cao cấp 1', '2023'),
+('hp202', 'p02', 'Lập trình C++ ', '2023'),
+('hp203', 'p03', 'SQL cơ bản', '2023');
+
+insert into DKMH ( IDDKMH , ID_HP, maSV, diemkt,diemthi ) 
+values
+(333, 'hp201', 'k215',8,6),
+(334, 'hp202', 'k216',5,3.2),
+(335, 'hp203', 'K217',9.0,6.5);
+
+
+
+create function fn_diem -- tạo function tên là fn_diem 
+	(
+		@hk int , -- khởi tạo biến có kiểu là int 
+		@maSV varchar(13) 
+	)
+returns float --- kiểu trả về float số thực 
+	as -- cho vào 
+begin -- băắt đầu 
+		declare @diemkt float --khai báo biến cục bộ 
+		declare @diemthi float 
+		declare @diem float 
+		select @diemkt = diemkt ,@diemthi = diemthi --gán biến để lấy giá trị từ diemkt ở DKMH
+		from DKMH d-- viết d vào cho đại diện DKMH sau khi lấy đỡ phải viết cả
+		join HP hp on d.ID_HP =hp.ID_HP--kết nối bảng HP với DKMH vì ở DKMH có ràng buộc khóa phụ của ID_HP  
+		where hp.Hocky = @hk and d.maSV = @maSV ;--với điều kiện lấy Hocky ở HP gán cho @hk, và  lấy msSV gán cho @maSV 
+
+		set @diem =(@diemkt * 0.4) + (@diemthi*0.6); -- tính @diem bằng các biến đã được gán dữ liệu 
+	return @diem; -- trả 
+end;-- hết tức là begin rồi end 
+
+
+  select sv.Hoten ,  dbo.fn_diem(2023 , '1') as Hocky -- lấy Họtên từ bảng sinhvien ở đây viết tắt ra là sv trên kia , gọi hàm cho năm 2023 và mã số sv bằng 1
+ from sinh_vien sv 
+ where sv.maSV ='1';
+
+
+ create function fn_diem_loveSV -- tạo một hàm 
+	(
+		@hk int , -- khai báo 1 biến có dữ liệu là int 
+		@loveSV varchar (10) -- tương tự
+	)
+returns @kq table --khi trả về cho kết quả thì ra cái bảng dứoi đây 
+		(
+			maSV varchar (13) ,
+			ten nvarchar(50),
+			gioi_tinh bit, 
+			diem_tb float 
+		)
+as -- nối thân 
+begin -- bắt đầu phần thân 
+	insert into @kq (maSV, ten , gioi_tinh , diem_tb )  -- chèn dữ liệu vào bảng @kq
+	select sv.maSV , sv.Hoten , sv.gioi_tinh, -- truy vấn dữ liệu từ bảng sinhvien cho maSV,Hoten,gioitinh
+		AVG (( d.diemkt + d.diemthi) /2 ) as diem_tb -- tính điểm trung bình từ bảng d(DKMH) diemkt+diemthi vào chia 2 cho kq ra cột diemtb
+	from sinh_vien sv -- truy vấn từ bảng sinhvien 
+	inner join DKMH d on sv.maSV = d.maSV -- truy vấn thêm bảng DKMH ràng buộc maSV
+	inner join HP hp on d.ID_HP = hp.ID_HP -- truy vấn bảng HP có quan hệ với DKMH chung nhau thì kết hợp lại 
+	where hp.Hocky = @hk and sv.maSV = @loveSV --điều kiện là lấy Hocky từ bảng HP gán cho biến@hk , còn maSV gán cho @loveSV
+	group by sv.maSV , sv.Hoten, sv.gioi_tinh;--nhóm lại theo các cột 
+return ;
+end;
+
+
+SELECT *
+FROM dbo.fn_diem_loveSV(2023, '1');-- gọi hàm cho phép lấy hết dữ liệu từ hàm nm chỉ in ra hk 2023 , maSV , và điểmtb , còn giới tính ko ghi thì null
+
+
+
+ create procedure sp_danh_muc --tạo thủ tục có tên là sp_danh_muc
+    @hk int -- tham số kiểu int để truyền dữ liệu
+as -- bắt đầu phần thân 
+begin
+    declare @Result nvarchar(max); -- cú pháp khai báo biến cục bộ để lưu kết quả json
+
+    select @Result = (   -- lấy dữ liệu vào Rsuil rồi chuyển thành json 
+        select IDmon, tenmon, Stc  -- lấy các cột 
+        from monhoc -- từ bảng monhoc
+        where IDmon in ( -- dk là idmon nằm trong bảng HP , chỉ lấy của cột IDmon đảm bảo IDmon chỉ xuất hiện 1 lần(distinct) 
+            select distinct IDmon
+            from HP 
+            where Hocky = @hk-- và điều kiện nữa là Hocky gán biến @hk 
+        ) -- kết thúc truy vấn con 
+        for json auto
+    );
+
+    select @Result =  ( -- gán giá trị json vào @result 
+        select ID_HP , TenHP-- chọn 2 cột là ID_HP và TenHP 
+        from HP-- từ bảng HP
+        where Hocky = @hk -- dk là vẫn gán Hocky cho biến @hk
+        for json auto -- chuyển json 
+    );
+
+    select @Result =  ( -- gán cả dữ liệu vào biến @Rs
+        select id_giao_vien , hoten , bo_mon -- chọn cột 
+        from Giao_vien gv -- từ bảng này 
+        where exists (-- giáo viên có giảng dạy ít nhất 1 học phần trong học kỳ dk tồn tại(exists)
+            select 1
+            from HP hp
+            where hp.IDmon = gv.bo_mon-- điều kiện là chọn hàng từ bảng Giao_vien nơi giảng dạy (bo_mon) trùng với IDmon của bảng HP giúp lấy tt cho biết giáo viên nào dạy ở môn nào có mã là bao nhiêu
+            and hp.Hocky = @hk-- xác các hocphan của Hocky được lấy 
+        )
+        for json auto-- chuyển json 
+    );
+
+    select @Result as JsonData; -- lấy json 
+end;--hết 
+		EXEC sp_danh_muc @hk = 2023;-- gọi thủ tục 
+
+
+--bài 4 viết Stored procedure trả về json là danh sách sinh viên đăng ký lớp học phần
+--@idLopHP
+--b1 tạo thủ tục
+--b2 khai báo biến đầu vào
+--b3 tạo thân 
+--    AS
+--      BEGIN
+--code ...(
+			-- tạo 1 biến để lưu chuỗi json 
+			-- lọc dữ liệu theo bài 
+			-- ở đây danh sách sinh viên thì lấy bảng sinhvien và HP , DKMH  
+			--maSV , Hoten , 
+			--HP
+-- end 
+
+create procedure sv_dk_hp_
+	@idlopHp varchar (50) 
+as 
+	begin 
+	declare @Result nvarchar (max);
+	  select @Result =( 
+			select sv.maSV ,Hoten 
+			from sinh_vien sv
+			inner join DKMH d on sv.maSV =d.maSV -- trả về 1 hàng phù hợp trong 2 bảng 
+			where d.ID_HP=@idlopHp -- đây là điều kiện 
+			for JSON PATH 
+			);
+	select @Result as Json ;
+end;
+				   
+	exec sv_dk_hp_ @idlopHp ='hp201'
